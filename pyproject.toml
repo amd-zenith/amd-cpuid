@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "amd-cpuid"
+dynamic = ["version"]
+authors = [
+  { name="Antonio Vázquez Blanco", email="antoniovazquezblanco@gmail.com" },
+  { name="Kaya Erchiran" },
+]
+description = "A Python library for parsing and interpreting AMD CPUID"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE.md"]
+keywords = ["amd", "cpuid", "x86"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Hardware",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/amd-zenith/amd-cpuid"
+Repository = "https://github.com/amd-zenith/amd-cpuid"
+Issues = "https://github.com/amd-zenith/amd-cpuid/issues"
+
+[project.scripts]
+amd_cpuid = "amd_cpuid.cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/amd_cpuid"]
