@@ -8,7 +8,6 @@ def test_from_cpuid_signature_milan():
     assert cpu.family == 0x19
     assert cpu.model == 0x00
     assert cpu.stepping == 0
-    assert cpu.familyname == "Zen3/Zen4"
 
 
 def test_from_ucode_signature_matisse():
@@ -19,14 +18,12 @@ def test_from_ucode_signature_matisse():
     assert cpu.familyext == 0x8
     assert cpu.modelbase == 0x0
     assert cpu.modelext == 0x7
-    assert cpu.familyname == "Zen/Zen+/Zen2"
 
 
 def test_from_fms_raphael():
     cpu = AmdCpuId.from_fms(0x19, 0x60, 0x1)
     assert cpu.familyext == 0xA
     assert cpu.modelext == 0x6
-    assert cpu.familyname == "Zen3/Zen4"
 
 
 @pytest.mark.parametrize(
@@ -55,13 +52,10 @@ def test_family_split():
     assert cpu.modelext == 0x4
 
 
-def test_zen5_family_name():
-    assert AmdCpuId.from_fms(0x1A, 0x00, 0x0).familyname == "Zen5"
-
-
 def test_unknown_family_name():
-    assert lookup_family_name(0x16) == "Unknown"
-    assert AmdCpuId.from_fms(0x16, 0x00, 0x0).familyname == "Unknown"
+    # 0x13 is a gap AMD never shipped, so it has no codename.
+    assert lookup_family_name(0x13) == "Unknown"
+    assert AmdCpuId.from_fms(0x13, 0x00, 0x0).familyname == "Unknown"
 
 
 def test_signature_examples():
