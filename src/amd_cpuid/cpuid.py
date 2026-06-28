@@ -3,7 +3,7 @@ Parse, interpret and convert between AMD CPUID representations.
 """
 
 from dataclasses import dataclass
-from .name import lookup_family_name
+from .name import lookup_codename, lookup_family_name, lookup_microarch_name
 
 
 @dataclass(frozen=True)
@@ -71,6 +71,16 @@ class AmdCpuId:
     def familyname(self) -> str:
         """The family name (e.g. ``"Zen3/Zen4"``)."""
         return lookup_family_name(self.family)
+
+    @property
+    def microarchitecture(self) -> str:
+        """The microarchitecture (e.g. ``"Zen 2"``), from family/model ranges."""
+        return lookup_microarch_name(self.family, self.model)
+
+    @property
+    def codename(self) -> str:
+        """The processor codename (e.g. ``"Matisse"``), or ``"Unknown"``."""
+        return lookup_codename(self.family, self.model)
 
     @property
     def modelbase(self) -> int:
