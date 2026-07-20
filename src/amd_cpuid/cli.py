@@ -20,7 +20,10 @@ def _int(value: str) -> int:
 def describe(cpu: AmdCpuId) -> str:
     """Render a multi-line, human-readable description of a CPUID identity."""
     lines = [
+        f"Description:        {cpu.description}",
         f"Family name:        {cpu.familyname}",
+        f"Microarchitecture:  {cpu.microarchitecture}",
+        f"Codename:           {cpu.codename}",
         f"Family:             {cpu.family:#04x} ({cpu.family})",
         f"Model:              {cpu.model:#04x} ({cpu.model})",
         f"Stepping:           {cpu.stepping:#03x} ({cpu.stepping})",

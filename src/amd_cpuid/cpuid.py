@@ -3,7 +3,13 @@ Parse, interpret and convert between AMD CPUID representations.
 """
 
 from dataclasses import dataclass
-from .name import lookup_codename, lookup_family_name, lookup_microarch_name
+from .microarchitecture import Microarchitecture
+from .name import (
+    UNKNOWN,
+    lookup_codename,
+    lookup_family_name,
+    lookup_microarch_name,
+)
 
 
 @dataclass(frozen=True)
@@ -73,14 +79,41 @@ class AmdCpuId:
         return lookup_family_name(self.family)
 
     @property
-    def microarchitecture(self) -> str:
-        """The microarchitecture (e.g. ``"Zen 2"``), from family/model ranges."""
+    def microarchitecture(self) -> Microarchitecture:
+        """
+        The microarchitecture (e.g. ``Microarchitecture.ZEN2``), from family/model ranges.
+
+        The result is a :class:`str` subclass, so it still compares equal to and
+        formats as its display name (e.g. ``"Zen 2"``).
+        """
         return lookup_microarch_name(self.family, self.model)
 
     @property
     def codename(self) -> str:
         """The processor codename (e.g. ``"Matisse"``), or ``"Unknown"``."""
         return lookup_codename(self.family, self.model)
+
+    @property
+    def fms(self) -> str:
+        """The numeric identity, e.g. ``"Family 0x19, Model 0x21, Stepping 0"``."""
+        return f"Family 0x{self.family:02X}, Model 0x{self.model:02X}, Stepping {self.stepping}"
+
+    @property
+    def description(self) -> str:
+        """
+        A short human-readable description, e.g. ``"Zen 3, Vermeer"``.
+
+        This is the microarchitecture -- falling back to the family name when the
+        microarchitecture is unknown (so an undocumented model still names its
+        family, e.g. ``"Bulldozer"``) -- followed by the codename, when one is
+        known.
+        """
+        micro = self.microarchitecture
+        head = self.familyname if micro is Microarchitecture.UNKNOWN else str(micro)
+        codename = self.codename
+        if codename == UNKNOWN:
+            return head
+        return f"{head}, {codename}"
 
     @property
     def modelbase(self) -> int:
@@ -118,3 +151,7 @@ class AmdCpuId:
             | ((self.modelext & 0xF) << 16)
             | ((self.familyext & 0xFF) << 20)
         )
+
+    def __str__(self) -> str:
+        """One-line identity, e.g. ``"Family 0x19, Model 0x21, Stepping 0 (Zen 3, Vermeer)"``."""
+        return f"{self.fms} ({self.description})"
