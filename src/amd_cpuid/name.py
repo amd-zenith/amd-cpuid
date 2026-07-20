@@ -2,6 +2,12 @@
 AMD Zen processor codename lookup.
 """
 
+from .microarchitecture import Microarchitecture
+
+#: Returned by the lookup helpers when nothing matches.
+UNKNOWN = "Unknown"
+
+
 # Family-level names.
 #
 # Compiled from:
@@ -29,7 +35,7 @@ def lookup_family_name(family: int) -> str:
     This is based on marketing materials and Linux kernel source, and is not guaranteed to be complete.
     Returns ``"Unknown"`` when the family is not known.
     """
-    return _FAMILY_NAMES.get(family, "Unknown")
+    return _FAMILY_NAMES.get(family, UNKNOWN)
 
 # Microarchitecture by ``(family, model)`` range.
 #
@@ -48,57 +54,65 @@ def lookup_family_name(family: int) -> str:
 # Family 0x11 (Griffin) uses K8 cores and family 0x12 (Llano) uses K10 cores.
 #
 # Each value is a tuple of inclusive ``(model_lo, model_hi, microarchitecture)``
-# ranges; a model outside every range resolves to ``"Unknown"``.
-_MICROARCH_RANGES: dict[int, tuple[tuple[int, int, str], ...]] = {
-    0x0f: ((0x00, 0xff, "K8"),),
-    0x10: ((0x00, 0xff, "K10"),),
-    0x11: ((0x00, 0xff, "K8"),),  # Griffin (K8 "Hound" cores)
-    0x12: ((0x00, 0xff, "K10"),),  # Llano (K10 "Husky" cores)
-    0x14: ((0x00, 0xff, "Bobcat"),),
+# ranges; a model outside every range resolves to ``Microarchitecture.UNKNOWN``.
+_MICROARCH_RANGES: dict[int, tuple[tuple[int, int, Microarchitecture], ...]] = {
+    0x0f: ((0x00, 0xff, Microarchitecture.K8),),
+    0x10: ((0x00, 0xff, Microarchitecture.K10),),
+    0x11: ((0x00, 0xff, Microarchitecture.K8),),  # Griffin (K8 "Hound" cores)
+    0x12: ((0x00, 0xff, Microarchitecture.K10),),  # Llano (K10 "Husky" cores)
+    0x14: ((0x00, 0xff, Microarchitecture.BOBCAT),),
     0x15: (
-        (0x00, 0x01, "Bulldozer"),
-        (0x02, 0x02, "Piledriver"),
-        (0x10, 0x1f, "Piledriver"),
-        (0x30, 0x3f, "Steamroller"),
-        (0x60, 0x7f, "Excavator"),
+        (0x00, 0x01, Microarchitecture.BULLDOZER),
+        (0x02, 0x02, Microarchitecture.PILEDRIVER),
+        (0x10, 0x1f, Microarchitecture.PILEDRIVER),
+        (0x30, 0x3f, Microarchitecture.STEAMROLLER),
+        (0x60, 0x7f, Microarchitecture.EXCAVATOR),
     ),
     0x16: (
-        (0x00, 0x0f, "Jaguar"),
-        (0x30, 0x3f, "Puma"),
+        (0x00, 0x0f, Microarchitecture.JAGUAR),
+        (0x30, 0x3f, Microarchitecture.PUMA),
     ),
     0x17: (  # kernel amd.c case 0x17
-        (0x00, 0x2f, "Zen"),
-        (0x50, 0x5f, "Zen"),
-        (0x30, 0x4f, "Zen 2"),
-        (0x60, 0x7f, "Zen 2"),
-        (0x90, 0x91, "Zen 2"),
-        (0xa0, 0xaf, "Zen 2"),
+        (0x00, 0x2f, Microarchitecture.ZEN),
+        (0x50, 0x5f, Microarchitecture.ZEN),
+        (0x30, 0x4f, Microarchitecture.ZEN2),
+        (0x60, 0x7f, Microarchitecture.ZEN2),
+        (0x90, 0x91, Microarchitecture.ZEN2),
+        (0xa0, 0xaf, Microarchitecture.ZEN2),
+        # The kernel leaves the remaining family-0x17 models (e.g. 0x80-0x8f)
+        # unclassified, but the whole family shares the Zen1/Zen2 microcode ISA.
+        # This trailing catch-all keeps the family exhaustive so no valid Zen
+        # patch is left unrecognized (e.g. model 0x84); it is reached only for
+        # models not matched by the specific ranges above.
+        (0x00, 0xff, Microarchitecture.ZEN2),
     ),
     0x19: (  # kernel amd.c case 0x19
-        (0x00, 0x0f, "Zen 3"),
-        (0x20, 0x5f, "Zen 3"),
-        (0x10, 0x1f, "Zen 4"),
-        (0x60, 0xaf, "Zen 4"),
+        (0x00, 0x0f, Microarchitecture.ZEN3),
+        (0x20, 0x5f, Microarchitecture.ZEN3),
+        (0x10, 0x1f, Microarchitecture.ZEN4),
+        (0x60, 0xaf, Microarchitecture.ZEN4),
     ),
     0x1a: (  # kernel amd.c case 0x1a
-        (0x00, 0x2f, "Zen 5"),
-        (0x40, 0x4f, "Zen 5"),
-        (0x60, 0x7f, "Zen 5"),
-        (0x50, 0x5f, "Zen 6"),
-        (0x80, 0xaf, "Zen 6"),
-        (0xc0, 0xef, "Zen 6"),
+        (0x00, 0x2f, Microarchitecture.ZEN5),
+        (0x40, 0x4f, Microarchitecture.ZEN5),
+        (0x60, 0x7f, Microarchitecture.ZEN5),
+        (0x50, 0x5f, Microarchitecture.ZEN6),
+        (0x80, 0xaf, Microarchitecture.ZEN6),
+        (0xc0, 0xef, Microarchitecture.ZEN6),
     ),
 }
 
-def lookup_microarch_name(family: int, model: int) -> str:
+def lookup_microarch_name(family: int, model: int) -> Microarchitecture:
     """
     Return the microarchitecture for a ``(family, model)`` pair.
-    Returns ``"Unknown"`` when the pair is not covered by any known range.
+    Returns ``Microarchitecture.UNKNOWN`` when the pair is not covered by any
+    known range. The returned value is a :class:`str` subclass, so it still
+    compares equal to and formats as its display name (e.g. ``"Zen 2"``).
     """
     for model_lo, model_hi, microarch in _MICROARCH_RANGES.get(family, ()):
         if model_lo <= model <= model_hi:
             return microarch
-    return "Unknown"
+    return Microarchitecture.UNKNOWN
 
 # Per-model processor codenames, keyed by ``(family, model)``.
 #
@@ -191,4 +205,4 @@ def lookup_codename(family: int, model: int) -> str:
     For example ``"Matisse"``. Returns ``"Unknown"`` when the model is not in
     the table.
     """
-    return _CODENAMES.get((family, model), "Unknown")
+    return _CODENAMES.get((family, model), UNKNOWN)
