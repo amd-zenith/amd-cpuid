@@ -1,9 +1,10 @@
+import os
 from unittest import mock
 
 import pytest
 
 from amd_cpuid import AmdCpuId
-from amd_cpuid.host import linux_cpuid, linux_cpuinfo
+from amd_cpuid.host import _windows, linux_cpuid, linux_cpuinfo, windows_environment, windows_registry
 
 
 RYZEN_5950X_CPUINFO = """\
@@ -40,6 +41,11 @@ INTEL_LEAVES = (
     (0x16).to_bytes(4, "little") + b"Genu" + b"ntel" + b"ineI"
     + (0x000906EA).to_bytes(4, "little") + bytes(12)
 )
+
+# Values under HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0.
+RYZEN_5950X_REGISTRY = {"VendorIdentifier": "AuthenticAMD", "Identifier": "AMD64 Family 25 Model 33 Stepping 2"}
+
+INTEL_REGISTRY = {"VendorIdentifier": "GenuineIntel", "Identifier": "Intel64 Family 6 Model 197 Stepping 2"}
 
 
 def _read_cpuid(module, path, data):
@@ -87,3 +93,83 @@ def test_linux_cpuid_on_this_machine_matches_cpuinfo():
     except (OSError, ValueError) as exc:
         pytest.skip(f"cannot read /dev/cpu/0/cpuid: {exc}")
     assert cpu == linux_cpuinfo.read_cpuid()
+
+
+def _fake_winreg(values):
+    """A stand-in for :mod:`winreg` whose processor key holds ``values``."""
+    winreg = mock.Mock()
+    winreg.OpenKey.return_value = mock.MagicMock()
+    winreg.QueryValueEx.side_effect = lambda key, name: (values[name], 1)
+    return winreg
+
+
+def _read_registry(values):
+    """Call ``windows_registry.read_cpuid`` with ``values`` in the registry."""
+    winreg = _fake_winreg(values)
+    with mock.patch.object(windows_registry, "winreg", winreg):
+        cpu = windows_registry.read_cpuid()
+    winreg.OpenKey.assert_called_once_with(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0")
+    return cpu
+
+
+def _read_environment(value):
+    """Call ``windows_environment.read_cpuid`` with ``PROCESSOR_IDENTIFIER`` set to ``value``."""
+    with mock.patch.dict(os.environ, {"PROCESSOR_IDENTIFIER": value}):
+        return windows_environment.read_cpuid()
+
+
+def test_windows_identifier_parses_family_model_stepping():
+    assert _windows.parse_identifier("AMD64 Family 25 Model 33 Stepping 2") == AmdCpuId.from_fms(0x19, 0x21, 0x2)
+
+
+def test_windows_identifier_rejects_malformed_values():
+    with pytest.raises(ValueError, match="invalid processor identifier"):
+        _windows.parse_identifier("AMD64 Family 25")
+
+
+def test_windows_registry_reads_identifier():
+    assert _read_registry(RYZEN_5950X_REGISTRY) == AmdCpuId.from_fms(0x19, 0x21, 0x2)
+
+
+def test_windows_registry_rejects_other_vendors():
+    with pytest.raises(ValueError, match="not an AMD processor"):
+        _read_registry(INTEL_REGISTRY)
+
+
+def test_windows_registry_unavailable():
+    with mock.patch.object(windows_registry, "winreg", None):
+        with pytest.raises(OSError, match="registry is not available"):
+            windows_registry.read_cpuid()
+
+
+def test_windows_registry_missing_key():
+    winreg = _fake_winreg(RYZEN_5950X_REGISTRY)
+    winreg.OpenKey.side_effect = FileNotFoundError("no such key")
+    with mock.patch.object(windows_registry, "winreg", winreg):
+        with pytest.raises(OSError, match="no such key"):
+            windows_registry.read_cpuid()
+
+
+def test_windows_environment_reads_identifier():
+    cpu = _read_environment("AMD64 Family 25 Model 33 Stepping 2, AuthenticAMD")
+    assert cpu == AmdCpuId.from_fms(0x19, 0x21, 0x2)
+
+
+def test_windows_environment_rejects_other_vendors():
+    with pytest.raises(ValueError, match="not an AMD processor"):
+        _read_environment("Intel64 Family 6 Model 197 Stepping 2, GenuineIntel")
+
+
+def test_windows_environment_unset():
+    with mock.patch.dict(os.environ):
+        os.environ.pop("PROCESSOR_IDENTIFIER", None)
+        with pytest.raises(OSError, match="PROCESSOR_IDENTIFIER"):
+            windows_environment.read_cpuid()
+
+
+def test_windows_registry_on_this_machine_matches_environment():
+    try:
+        cpu = windows_registry.read_cpuid()
+    except (OSError, ValueError) as exc:
+        pytest.skip(f"cannot read the Windows registry: {exc}")
+    assert cpu == windows_environment.read_cpuid()

@@ -6,4 +6,6 @@ module here reads it from a different source:
 
 - :mod:`.linux_cpuinfo`: Linux ``/proc/cpuinfo``, readable by any user.
 - :mod:`.linux_cpuid`: Linux ``/dev/cpu/0/cpuid``, usually readable by root only.
+- :mod:`.windows_registry`: the Windows registry, readable by any user.
+- :mod:`.windows_environment`: the Windows ``PROCESSOR_IDENTIFIER`` environment variable.
 """

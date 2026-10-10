@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from amd_cpuid import AmdCpuId, system
-from amd_cpuid.host import linux_cpuid, linux_cpuinfo
+from amd_cpuid.host import linux_cpuid, linux_cpuinfo, windows_environment, windows_registry
 
 
 ZEN3 = AmdCpuId.from_fms(0x19, 0x21, 0x2)
@@ -26,10 +26,29 @@ def test_system_falls_back_when_backend_unreadable():
         assert system.read_cpuid() == ZEN3
 
 
+def test_system_falls_back_to_windows_backends():
+    with mock.patch.object(linux_cpuinfo, "read_cpuid", _fail(FileNotFoundError("no /proc"))), \
+         mock.patch.object(linux_cpuid, "read_cpuid", _fail(FileNotFoundError("no /dev"))), \
+         mock.patch.object(windows_registry, "read_cpuid", _fail(OSError("no registry"))), \
+         mock.patch.object(windows_environment, "read_cpuid", return_value=ZEN3):
+        assert system.read_cpuid() == ZEN3
+
+
+def test_system_prefers_registry_over_environment():
+    with mock.patch.object(linux_cpuinfo, "read_cpuid", _fail(FileNotFoundError("no /proc"))), \
+         mock.patch.object(linux_cpuid, "read_cpuid", _fail(FileNotFoundError("no /dev"))), \
+         mock.patch.object(windows_registry, "read_cpuid", return_value=ZEN3), \
+         mock.patch.object(windows_environment, "read_cpuid") as environment:
+        assert system.read_cpuid() == ZEN3
+    environment.assert_not_called()
+
+
 def test_system_reports_every_backend_error():
     with mock.patch.object(linux_cpuinfo, "read_cpuid", _fail(FileNotFoundError("no /proc"))), \
-         mock.patch.object(linux_cpuid, "read_cpuid", _fail(PermissionError("not root"))):
-        with pytest.raises(OSError, match="no /proc; not root"):
+         mock.patch.object(linux_cpuid, "read_cpuid", _fail(PermissionError("not root"))), \
+         mock.patch.object(windows_registry, "read_cpuid", _fail(OSError("no registry"))), \
+         mock.patch.object(windows_environment, "read_cpuid", _fail(OSError("no variable"))):
+        with pytest.raises(OSError, match="no /proc; not root; no registry; no variable"):
             system.read_cpuid()
 
 
