@@ -4,7 +4,7 @@ Parse, interpret and convert between AMD CPUID representations.
 
 from dataclasses import dataclass
 from .microarchitecture import Microarchitecture
-from .name import (
+from .names import (
     UNKNOWN,
     lookup_codename,
     lookup_family_name,
