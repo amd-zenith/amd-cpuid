@@ -7,6 +7,7 @@ import sys
 from collections.abc import Sequence
 
 from .cpuid import AmdCpuId
+from .system import read_cpuid
 
 
 def _int(value: str) -> int:
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument("-c", "--cpuid", metavar="EAX", type=_int, help="standard CPUID instruction signature (e.g. 0x00A00F00)")
     group.add_argument("-u", "--ucode", metavar="SIG", type=_int, help="AMD microcode patch header cpuid field (e.g. 0xA000)")
     group.add_argument("-f", "--fms", nargs=3, metavar=("FAMILY", "MODEL", "STEPPING"), type=_int, help="display family, model and stepping (e.g. 0x19 0x00 0x0)")
+    group.add_argument("-l", "--local", action="store_true", help="read the CPUID of the processor this tool is running on")
     return parser
 
 
@@ -52,14 +54,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     try:
-        if args.cpuid is not None:
+        if args.local:
+            cpu = read_cpuid()
+        elif args.cpuid is not None:
             cpu = AmdCpuId.from_cpuid_signature(args.cpuid)
         elif args.ucode is not None:
             cpu = AmdCpuId.from_ucode_signature(args.ucode)
         else:
             family, model, stepping = args.fms
             cpu = AmdCpuId.from_fms(family, model, stepping)
-    except (ValueError, TypeError) as exc:
+    except (ValueError, TypeError, OSError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
 
